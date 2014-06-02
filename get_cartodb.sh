@@ -4,6 +4,8 @@
 # for ubuntu 12.04
 # user args: 1) postgres password
 
+pass=$1
+
 if [[ -z $pass ]]; then
 	echo -e "You must provide a password for PostgreSQL user postgres!\n"	
 	exit 1;
