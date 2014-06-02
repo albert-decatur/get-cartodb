@@ -2,9 +2,16 @@
 
 # stand up CartoDB
 # for ubuntu 12.04
+# user args: 1) postgres password
+
+if [[ -z $pass ]]; then
+	echo -e "You must provide a password for PostgreSQL user postgres!\n"	
+	exit 1;
+fi
 
 get_prereqs() {
 	cd ~
+	sudo apt-get update
 	sudo apt-get -y install git-core
 	git clone --recursive https://github.com/CartoDB/cartodb20.git
 	sudo add-apt-repository -y ppa:cartodb/gis
@@ -13,6 +20,7 @@ get_prereqs() {
 	sudo add-apt-repository -y ppa:chris-lea/node.js-legacy
 	sudo add-apt-repository -y ppa:cartodb/redis
 	sudo add-apt-repository -y ppa:cartodb/postgresql
+	sudo apt-get update
 	sudo apt-get -y install unp
 	sudo apt-get -y install zip
 }
@@ -64,7 +72,9 @@ config_postgis() {
 }
 
 get_prereqs2() {
-	sudo apt-get -y install ruby1.9.1
+	sudo apt-get update
+	#sudo apt-get -y install ruby1.9.1
+	#sudo apt-get -y install ruby1.9.3
 	sudo apt-get -y install nodejs=0.8.26-1chl1~precise1
 	sudo apt-get -y install npm=1.3.0-1chl1~precise1
 	sudo apt-get -y install redis-server
@@ -108,34 +118,66 @@ get_windshaft-cartodb() {
 	node app.js development &
 }
 
-#\curl -L https://get.rvm.io | bash -s stable --ruby=1.9.2
-#source /usr/local/rvm/scripts/rvm
-#source /home/vagrant/.rvm/scripts/rvm
+get_ruby() {
+	cd ~
+	curl -L https://get.rvm.io | bash
+	source /home/vagrant/.rvm/scripts/rvm
+	rvm install 1.9.3
+}
+
+
+bundle_cartodb() {
+	cd ~/cartodb20
+	redis-server &
+	rvm use 1.9.3@cartodb --create && bundle install
+	# not sure what you get and don't get from rvmsudo
+	# need to run as root?
+	#rvmsudo bundle install
+	cd ~
+}
+
+config_cartodb() {
+	cd ~/cartodb20
+	cp config/app_config.yml.sample config/app_config.yml
+	cp config/database.yml.sample config/database.yml
+	export SUBDOMAIN=development
+	echo "127.0.0.1 ${SUBDOMAIN}.localhost.lan" | sudo tee -a /etc/hosts
+	cd ~
+}
+
+get_prereqs
+get_geos
+get_postgres
+get_postgis
+config_postgis
+get_prereqs2
+get_prereqs3
+get_cartodb-sql-api
+get_windshaft-cartodb
+get_ruby
+config_cartodb
+config_further
+bundle_cartodb
+
+##config_further() {
+#	cd ~/cartodb20
+#	# make a copy of the original pg_hba.conf
+#	sudo cp /etc/postgresql/9.1/main/pg_hba.conf /etc/postgresql/9.1/main/.pg_hba.conf.bak
+#	# replace md5 and peer with trust in pg_hba.conf. security??
+#	sudo apt-get install moreutils # to get sponge
+#	sudo cat /etc/postgresql/9.1/main/pg_hba.conf | sed 's:peer$\|md5$:trust:g' | sudo sponge /etc/postgresql/9.1/main/pg_hba.conf
+#	# change postgres user password
+#	a="'" # need to make apostraphe a var to expand password var
+#	sudo -u postgres psql -U postgres -d postgres -c "alter user postgres with password ${a}${pass}${a};"
+#	# copy original database config to backup file
+#	cp config/database.yml config/.database.yml.bak
+#	# set postgres passwords in config/database.yml
+#	cat config/database.yml | sed "s:\(\spassword\:\):\1 $pass:g" | sponge config/database.yml
+#	# give permission over pg_hba.conf to postgres user
+#	sudo chown postgres:postgres /etc/postgresql/9.1/main/pg_hba.conf
+#	# restart postgres
+#	sudo service postgresql restart
+##}
 #
-#cd ~/cartodb20
-#redis-server &
-#rvm use 1.9.2@cartodb --create && bundle install
-## not sure what you get and don't get from rvmsudo
-## need to run as root?
-#rvmsudo bundle install 
-#
-#cp config/app_config.yml.sample config/app_config.yml
-#cp config/database.yml.sample config/database.yml
-#export SUBDOMAIN=development
-#echo "127.0.0.1 ${SUBDOMAIN}.localhost.lan" | sudo tee -a /etc/hosts
-#
-### set up nginx so we can proxy the subdomain
-### doesn't seem to be doing what I want yet!
-### just forwards to localhost:3000 for now
-##sudo apt-get install nginx
-##sudo cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
-##sudo cp /vagrant/nginx.conf /etc/nginx/nginx.conf
-##sudo /etc/init.d/nginx restart
-#
-#
-## must give postgres a password
-## must set postgres passwords in config/database.yml
-## must set pg_hba.conf to "trust" and restart postgres
+## run create dev user script
 #sh script/create_dev_user ${SUBDOMAIN}
-#QUEUE=* bundle exec rake resque:work &
-#bundle exec rails s -p 3000 &

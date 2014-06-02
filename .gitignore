@@ -1,2 +1,5 @@
+.*
+!/.gitignore
 cartodb20/
-*.swp
+cartodb20_build.sh
+cartodb-install-ubuntu-1204.md
