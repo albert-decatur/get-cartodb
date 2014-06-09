@@ -147,6 +147,26 @@ config_cartodb() {
 	cd ~
 }
 
+config_further() {
+	cd ~/cartodb20
+	# make a copy of the original pg_hba.conf
+	sudo cp /etc/postgresql/9.1/main/pg_hba.conf /etc/postgresql/9.1/main/.pg_hba.conf.bak
+	# replace md5 and peer with trust in pg_hba.conf. security??
+	sudo apt-get install moreutils # to get sponge
+	sudo cat /etc/postgresql/9.1/main/pg_hba.conf | sed 's:peer$\|md5$:trust:g' | sudo sponge /etc/postgresql/9.1/main/pg_hba.conf
+	# change postgres user password
+	a="'" # need to make apostraphe a var to expand password var
+	sudo -u postgres psql -U postgres -d postgres -c "alter user postgres with password ${a}${pass}${a};"
+	# copy original database config to backup file
+	cp config/database.yml config/.database.yml.bak
+	# set postgres passwords in config/database.yml
+	cat config/database.yml | sed "s:\(\spassword\:\):\1 $pass:g" | sponge config/database.yml
+	# give permission over pg_hba.conf to postgres user
+	sudo chown postgres:postgres /etc/postgresql/9.1/main/pg_hba.conf
+	# restart postgres
+	sudo service postgresql restart
+}
+
 get_prereqs
 get_geos
 get_postgres
@@ -161,25 +181,6 @@ config_cartodb
 config_further
 bundle_cartodb
 
-##config_further() {
-#	cd ~/cartodb20
-#	# make a copy of the original pg_hba.conf
-#	sudo cp /etc/postgresql/9.1/main/pg_hba.conf /etc/postgresql/9.1/main/.pg_hba.conf.bak
-#	# replace md5 and peer with trust in pg_hba.conf. security??
-#	sudo apt-get install moreutils # to get sponge
-#	sudo cat /etc/postgresql/9.1/main/pg_hba.conf | sed 's:peer$\|md5$:trust:g' | sudo sponge /etc/postgresql/9.1/main/pg_hba.conf
-#	# change postgres user password
-#	a="'" # need to make apostraphe a var to expand password var
-#	sudo -u postgres psql -U postgres -d postgres -c "alter user postgres with password ${a}${pass}${a};"
-#	# copy original database config to backup file
-#	cp config/database.yml config/.database.yml.bak
-#	# set postgres passwords in config/database.yml
-#	cat config/database.yml | sed "s:\(\spassword\:\):\1 $pass:g" | sponge config/database.yml
-#	# give permission over pg_hba.conf to postgres user
-#	sudo chown postgres:postgres /etc/postgresql/9.1/main/pg_hba.conf
-#	# restart postgres
-#	sudo service postgresql restart
-##}
-#
+
 ## run create dev user script
 #sh script/create_dev_user ${SUBDOMAIN}
